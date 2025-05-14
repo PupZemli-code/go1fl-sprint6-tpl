@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Yandex-Practicum/go1fl-sprint6-final/internal/service"
 )
@@ -32,15 +33,15 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Получение файла из формы
-	file, _, err := r.FormFile("myFile")
+	fileHtml, fileHeader, err := r.FormFile("myFile")
 	if err != nil {
 		http.Error(w, "Файл не найден", http.StatusInternalServerError)
 		return
 	}
-	defer file.Close()
+	defer fileHtml.Close()
 
 	// 4. Чтение данных из файла
-	data, err := io.ReadAll(file)
+	data, err := io.ReadAll(fileHtml)
 	if err != nil {
 		http.Error(w, "Ошибка чтения файла", http.StatusInternalServerError)
 		return
@@ -53,55 +54,31 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	/*// 6. Генерация имени файла
-	timestamp := time.Now().UTC().String()
-	extension := filepath.Ext(handler.Filename)
-	newFilename := fmt.Sprintf("converted_%s%s", timestamp, extension)
-	*/
+	// 6. Генерация имени файла, создание и запись в локальный файл
+	fileName := time.Now().UTC().Format("2006-01-02_15-04-05")
+	extension := filepath.Ext(fileHeader.Filename)
+	// Проверяем, что расширение не пустое
+	if extension == "" {
+		// Если расширение пустое, добавляем его вручную
+		extension = ".txt" // или другое расширение по умолчанию
+	}
+	fileName += extension
 
-	// 7. Создание и запись в локальный файл
-	//err = writeToFile(newFilename, convertedString)
-
-	fileRes, err := os.OpenFile("fileRes", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
+	fileOut, err := os.Create(fileName)
 	if err != nil {
 		http.Error(w, "Ошибка создания файла", http.StatusInternalServerError)
 		return
 	}
-	err = writeToFile("fileRes", convertedString)
-	defer fileRes.Close()
+	_, err = io.WriteString(fileOut, convertedString)
+	defer fileOut.Close()
 	if err != nil {
 		http.Error(w, "Ошибка записи в файл", http.StatusInternalServerError)
 		return
 	}
 
-	// 8. Возврат результата
+	// 7. Возврат результата
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Файл успешно конвертирован и сохранен как %s\n", "fileRes")
+	fmt.Fprintf(w, "Файл %s успешно конвертирован и сохранен как %s\n", fileHeader.Filename, fileName)
 	fmt.Fprintf(w, "Результат: %s", convertedString)
 
-}
-
-// Функция для записи в файл
-func writeToFile(filename string, content string) error {
-	// Создание директории, если она не существует
-	dir := filepath.Dir(filename)
-	if dir != "go1fl-sprint6-tpl/Data_fail" {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("ошибка создания директории: %w", err)
-		}
-	}
-
-	// Запись в файл
-	file, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("ошибка создания файла: %w", err)
-	}
-	defer file.Close()
-
-	_, err = io.WriteString(file, content)
-	if err != nil {
-		return fmt.Errorf("ошибка записи в файл: %w", err)
-	}
-
-	return nil
 }
